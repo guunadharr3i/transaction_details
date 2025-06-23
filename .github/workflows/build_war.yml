@@ -3,53 +3,47 @@ name: Build and Release WAR
 on:
   push:
     tags:
-      - '*-v*.*.*'  # Only triggers on tags like uat-v1.0.0, prod-v2.1.0
+      - 'uat-v*.*.*'
+      - 'cug-v*.*.*'
+      - 'prod-v*.*.*'
 
 jobs:
+  extract-env:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.setenv.outputs.env }}
+    steps:
+      - name: Extract Environment
+        id: setenv
+        run: |
+          TAG_NAME="${GITHUB_REF##*/}"
+          ENVIRONMENT=$(echo "$TAG_NAME" | cut -d'-' -f1 | tr '[:lower:]' '[:upper:]')
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          echo "ENVIRONMENT_NAME=$ENVIRONMENT" >> $GITHUB_ENV
+          echo "::set-output name=env::$ENVIRONMENT"
+
   build:
     runs-on: ubuntu-latest
-
-    outputs:
-      tag_name: ${{ steps.extract.outputs.tag }}
-      env_name: ${{ steps.extract.outputs.env }}
+    needs: extract-env
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract tag and environment
-        id: extract
-        run: |
-          TAG="${GITHUB_REF##refs/tags/}"
-          echo "🔖 Tag: $TAG"
-          ENV_NAME=$(echo "$TAG" | cut -d'-' -f1 | tr '[:lower:]' '[:upper:]')
-          echo "🌐 Environment: $ENV_NAME"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "env=$ENV_NAME" >> $GITHUB_OUTPUT
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    environment: ${{ needs.build.outputs.env_name }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Java 8
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8'
+          java-version: '17'
 
-      - name: Build WAR with Maven
-        run: mvn clean package
+      - name: Make mvnw executable
+        run: chmod +x mvnw
 
-      - name: Upload WAR to GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Build WAR
+        run: ./mvnw clean package
+
+      - name: Upload WAR
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ needs.build.outputs.tag_name }}
-          name: Release ${{ needs.build.outputs.tag_name }}
-          files: target/*.war
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: war-artifact
+          path: target/*.war
