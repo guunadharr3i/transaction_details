@@ -3,7 +3,7 @@ name: Build and Release WAR by Env Tag
 on:
   push:
     tags:
-      - '*-v*.*.*'  # Matches tags like uat-v1.0.0, cug-v1.2.3, prod-v2.0.0
+      - '*-v*.*.*'  # Example: uat-v1.0.0, cug-v1.2.3, prod-v2.0.0
 
 jobs:
   build:
@@ -21,7 +21,7 @@ jobs:
         id: set_env
         run: |
           PREFIX=${{ steps.extract_env.outputs.env_prefix }}
-          ENV_NAME=$(echo $PREFIX | tr '[:lower:]' '[:upper:]')
+          ENV_NAME=$(echo "$PREFIX" | tr '[:lower:]' '[:upper:]')
           echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
 
       - name: Setup Environment Context
@@ -48,14 +48,7 @@ jobs:
       - name: Run Tests
         run: mvn test
 
-      - name: Upload WAR Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: war-artifact
-          path: target/*.war
-          retention-days: 5
-
-      - name: Create GitHub Release
+      - name: Create GitHub Release (before upload)
         uses: softprops/action-gh-release@v1
         with:
           files: target/*.war
@@ -71,12 +64,10 @@ jobs:
           mkdir -p ~/.config/rclone
           echo "[Pcloud]" > ~/.config/rclone/rclone.conf
           echo "type = pcloud" >> ~/.config/rclone/rclone.conf
-          echo "token = ${{ secrets.RCLONE_PCLOUD_TOKEN_JSON }}" >> ~/.config/rclone/rclone.conf
+          printf "token = %s\n" '${{ secrets.RCLONE_PCLOUD_TOKEN_JSON }}' >> ~/.config/rclone/rclone.conf
 
       - name: Upload WAR to pCloud
         run: |
-          ENV=${{ needs.build.outputs.env_name }}
-          DEST="Pcloud:/GitHubWARs/$ENV/"
-          mkdir -p upload-dir && cp target/*.war upload-dir/
-          rclone mkdir "$DEST" || true
-          rclone copy upload-dir/ "$DEST" --progress
+          TARGET_DIR="Pcloud:/GitHubWARs/${{ needs.build.outputs.env_name }}"
+          rclone mkdir "$TARGET_DIR" || true
+          rclone copy target/*.war "$TARGET_DIR" --progress
