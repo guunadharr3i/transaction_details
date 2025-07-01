@@ -71,10 +71,9 @@ jobs:
       - name: Configure rclone for pCloud
         run: |
           mkdir -p ~/.config/rclone
-          echo "[Pcloud]" > ~/.config/rclone/rclone.conf
+          echo "[Pcloud]" >> ~/.config/rclone/rclone.conf
           echo "type = pcloud" >> ~/.config/rclone/rclone.conf
-          echo "token = '${{ secrets.RCLONE_PCLOUD_TOKEN_JSON }}'" >> ~/.config/rclone/rclone.conf
-
+          echo 'token = ${{ secrets.RCLONE_PCLOUD_TOKEN_JSON }}' >> ~/.config/rclone/rclone.conf
 
       - name: Upload WAR to pCloud
         run: |
